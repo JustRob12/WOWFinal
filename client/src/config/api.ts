@@ -13,4 +13,5 @@ export const API_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
 
 export const API_ENDPOINTS = {
   users: `${API_URL}/api/users`,
+  wallets: `${API_URL}/api/wallets`,
 }; 

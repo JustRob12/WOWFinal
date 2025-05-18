@@ -5,13 +5,23 @@ exports.createOrUpdateUser = async (req, res) => {
   try {
     const { email, displayName, photoURL } = req.body;
     
-    const user = await User.findOneAndUpdate(
-      { email },
-      { email, displayName, photoURL },
-      { upsert: true, new: true }
-    );
+    let user = await User.findOne({ email });
     
-    res.json(user);
+    if (user) {
+      user.displayName = displayName;
+      user.photoURL = photoURL;
+    } else {
+      user = new User({
+        email,
+        displayName,
+        photoURL
+      });
+    }
+
+    await user.save();
+    const token = await user.generateAuthToken();
+    
+    res.json({ user, token });
   } catch (error) {
     console.error('Error saving user:', error);
     res.status(500).json({ error: 'Error saving user' });
@@ -29,5 +39,18 @@ exports.getUserByEmail = async (req, res) => {
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ error: 'Error fetching user' });
+  }
+};
+
+// Logout user
+exports.logout = async (req, res) => {
+  try {
+    req.user.tokens = req.user.tokens.filter((token) => {
+      return token.token !== req.token;
+    });
+    await req.user.save();
+    res.json({ message: 'Successfully logged out' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error logging out' });
   }
 }; 
