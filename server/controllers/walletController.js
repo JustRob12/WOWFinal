@@ -1,183 +1,234 @@
 const Wallet = require('../models/Wallet');
 
-// Create a new wallet
-exports.createWallet = async (req, res) => {
-  try {
-    const { name, currency, userId } = req.body;
-    const wallet = new Wallet({
-      name,
-      currency,
-      userId,
-      balance: 0 // Explicitly set initial balance to 0
-    });
-    await wallet.save();
-    res.status(201).json(wallet);
-  } catch (error) {
-    console.error('Error creating wallet:', error);
-    res.status(500).json({ error: 'Error creating wallet' });
-  }
-};
+const walletController = {
+  // Create a new wallet
+  createWallet: async (req, res) => {
+    try {
+      const { name, currency, accountNumber, userId } = req.body;
 
-// Get all wallets for a user
-exports.getWallets = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    console.log('Fetching wallets for user:', userId); // Debug log
-    
-    const wallets = await Wallet.find({ userId });
-    console.log('Found wallets:', wallets); // Debug log
-    
-    // Ensure balance is a number and properly formatted
-    const formattedWallets = wallets.map(wallet => ({
-      ...wallet.toObject(),
-      balance: Number(wallet.balance.toFixed(2))
-    }));
-    
-    console.log('Formatted wallets:', formattedWallets); // Debug log
-    res.json(formattedWallets);
-  } catch (error) {
-    console.error('Error fetching wallets:', error);
-    res.status(500).json({ error: 'Error fetching wallets' });
-  }
-};
+      // Validate required fields
+      if (!name || !currency || !accountNumber || !userId) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
 
-// Get wallet by ID
-exports.getWalletById = async (req, res) => {
-  try {
-    const wallet = await Wallet.findById(req.params.id);
-    if (!wallet) {
-      return res.status(404).json({ error: 'Wallet not found' });
+      // Validate tokenized account number format
+      if (!accountNumber.startsWith('TOK_') || accountNumber.split('_').length !== 3) {
+        return res.status(400).json({ error: 'Invalid account number format' });
+      }
+
+      const wallet = new Wallet({
+        name,
+        currency,
+        accountNumber,
+        userId,
+        balance: 0,
+      });
+
+      const savedWallet = await wallet.save();
+      res.status(201).json(savedWallet);
+    } catch (error) {
+      console.error('Error creating wallet:', error);
+      res.status(500).json({ error: 'Failed to create wallet' });
     }
-    res.json(wallet);
-  } catch (error) {
-    console.error('Error fetching wallet:', error);
-    res.status(500).json({ error: 'Error fetching wallet' });
-  }
-};
+  },
 
-// Update wallet
-exports.updateWallet = async (req, res) => {
-  try {
-    const { name, currency } = req.body;
-    const wallet = await Wallet.findByIdAndUpdate(
-      req.params.id,
-      { name, currency },
-      { new: true }
-    );
-    if (!wallet) {
-      return res.status(404).json({ error: 'Wallet not found' });
+  // Get all wallets for a user
+  getWalletsByUser: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const wallets = await Wallet.find({ userId });
+      res.json(wallets);
+    } catch (error) {
+      console.error('Error fetching wallets:', error);
+      res.status(500).json({ error: 'Failed to fetch wallets' });
     }
-    res.json(wallet);
-  } catch (error) {
-    console.error('Error updating wallet:', error);
-    res.status(500).json({ error: 'Error updating wallet' });
-  }
-};
+  },
 
-// Delete wallet
-exports.deleteWallet = async (req, res) => {
-  try {
-    const wallet = await Wallet.findByIdAndDelete(req.params.id);
-    if (!wallet) {
-      return res.status(404).json({ error: 'Wallet not found' });
+  // Get a specific wallet
+  getWallet: async (req, res) => {
+    try {
+      const wallet = await Wallet.findById(req.params.id);
+      if (!wallet) {
+        return res.status(404).json({ error: 'Wallet not found' });
+      }
+      res.json(wallet);
+    } catch (error) {
+      console.error('Error fetching wallet:', error);
+      res.status(500).json({ error: 'Failed to fetch wallet' });
     }
-    res.json({ message: 'Wallet deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting wallet:', error);
-    res.status(500).json({ error: 'Error deleting wallet' });
-  }
-};
+  },
 
-// Add transaction
-exports.addTransaction = async (req, res) => {
-  try {
-    const { type, amount, description, category } = req.body;
-    const wallet = await Wallet.findById(req.params.id);
-    
-    if (!wallet) {
-      return res.status(404).json({ error: 'Wallet not found' });
+  // Update wallet
+  updateWallet: async (req, res) => {
+    try {
+      const { name, currency } = req.body;
+      const wallet = await Wallet.findByIdAndUpdate(
+        req.params.id,
+        { name, currency },
+        { new: true }
+      );
+      if (!wallet) {
+        return res.status(404).json({ error: 'Wallet not found' });
+      }
+      res.json(wallet);
+    } catch (error) {
+      console.error('Error updating wallet:', error);
+      res.status(500).json({ error: 'Error updating wallet' });
     }
+  },
 
-    // Validate amount
-    const transactionAmount = parseFloat(amount);
-    if (isNaN(transactionAmount) || transactionAmount <= 0) {
-      return res.status(400).json({ error: 'Invalid transaction amount' });
+  // Delete wallet
+  deleteWallet: async (req, res) => {
+    try {
+      const wallet = await Wallet.findByIdAndDelete(req.params.id);
+      if (!wallet) {
+        return res.status(404).json({ error: 'Wallet not found' });
+      }
+      res.json({ message: 'Wallet deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting wallet:', error);
+      res.status(500).json({ error: 'Error deleting wallet' });
     }
+  },
 
-    const transaction = {
-      type,
-      amount: transactionAmount,
-      description,
-      category,
-      date: new Date()
-    };
+  // Add a transaction to a wallet
+  addTransaction: async (req, res) => {
+    try {
+      const { type, amount, description, category } = req.body;
+      const walletId = req.params.id;
 
-    // Update balance based on transaction type
-    if (type === 'income') {
-      wallet.balance = Number((wallet.balance + transactionAmount).toFixed(2));
-    } else if (type === 'expense') {
-      if (transactionAmount > wallet.balance) {
+      // Validate required fields
+      if (!type || !amount || !description || !category) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      const wallet = await Wallet.findById(walletId);
+      if (!wallet) {
+        return res.status(404).json({ error: 'Wallet not found' });
+      }
+
+      // Check if there's enough balance for expense transactions
+      if (type === 'expense' && wallet.balance < amount) {
         return res.status(400).json({ error: 'Insufficient balance' });
       }
-      wallet.balance = Number((wallet.balance - transactionAmount).toFixed(2));
-    }
 
-    wallet.transactions.push(transaction);
-    await wallet.save();
-    
-    res.json(wallet);
-  } catch (error) {
-    console.error('Error adding transaction:', error);
-    res.status(500).json({ error: 'Error adding transaction' });
+      // Update balance
+      const balanceChange = type === 'income' ? amount : -amount;
+      wallet.balance += balanceChange;
+
+      // Add transaction
+      wallet.transactions.push({
+        type,
+        amount,
+        description,
+        category,
+        date: new Date(),
+      });
+
+      const updatedWallet = await wallet.save();
+      res.json(updatedWallet);
+    } catch (error) {
+      console.error('Error adding transaction:', error);
+      res.status(500).json({ error: 'Failed to add transaction' });
+    }
+  },
+
+  // Get transactions for a specific period
+  getTransactions: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { period = 'month' } = req.query;
+
+      const wallet = await Wallet.findById(id);
+      if (!wallet) {
+        return res.status(404).json({ error: 'Wallet not found' });
+      }
+
+      const now = new Date();
+      let startDate = new Date();
+
+      switch (period) {
+        case 'day':
+          startDate.setDate(now.getDate() - 1);
+          break;
+        case 'week':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
+        default:
+          startDate.setMonth(now.getMonth() - 1); // Default to last month
+      }
+
+      const transactions = wallet.transactions.filter(
+        transaction => new Date(transaction.date) >= startDate
+      );
+
+      res.json({
+        transactions,
+        period,
+        startDate,
+        endDate: now,
+      });
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      res.status(500).json({ error: 'Failed to fetch transactions' });
+    }
+  },
+
+  // Get transactions summary
+  getTransactionsSummary: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { period } = req.query;
+      
+      const wallet = await Wallet.findById(id);
+      if (!wallet) {
+        return res.status(404).json({ error: 'Wallet not found' });
+      }
+
+      const now = new Date();
+      let startDate;
+
+      switch (period) {
+        case 'day':
+          startDate = new Date(now.setHours(0, 0, 0, 0));
+          break;
+        case 'week':
+          startDate = new Date(now.setDate(now.getDate() - 7));
+          break;
+        case 'month':
+          startDate = new Date(now.setMonth(now.getMonth() - 1));
+          break;
+        case 'year':
+          startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+          break;
+        default:
+          startDate = new Date(0); // All time
+      }
+
+      const transactions = wallet.transactions.filter(t => t.date >= startDate);
+      
+      const summary = {
+        totalIncome: transactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0),
+        totalExpenses: transactions
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + t.amount, 0),
+        transactions: transactions
+      };
+
+      res.json(summary);
+    } catch (error) {
+      console.error('Error getting transactions summary:', error);
+      res.status(500).json({ error: 'Error getting transactions summary' });
+    }
   }
 };
 
-// Get transactions summary
-exports.getTransactionsSummary = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { period } = req.query; // 'day', 'week', 'month', 'year'
-    
-    const wallet = await Wallet.findById(id);
-    if (!wallet) {
-      return res.status(404).json({ error: 'Wallet not found' });
-    }
-
-    const now = new Date();
-    let startDate;
-
-    switch (period) {
-      case 'day':
-        startDate = new Date(now.setHours(0, 0, 0, 0));
-        break;
-      case 'week':
-        startDate = new Date(now.setDate(now.getDate() - 7));
-        break;
-      case 'month':
-        startDate = new Date(now.setMonth(now.getMonth() - 1));
-        break;
-      case 'year':
-        startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-        break;
-      default:
-        startDate = new Date(0); // All time
-    }
-
-    const transactions = wallet.transactions.filter(t => t.date >= startDate);
-    
-    const summary = {
-      totalIncome: transactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0),
-      totalExpenses: transactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0),
-      transactions: transactions
-    };
-
-    res.json(summary);
-  } catch (error) {
-    console.error('Error getting transactions summary:', error);
-    res.status(500).json({ error: 'Error getting transactions summary' });
-  }
-}; 
+module.exports = walletController; 

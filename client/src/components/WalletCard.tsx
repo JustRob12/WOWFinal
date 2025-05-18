@@ -8,6 +8,7 @@ interface WalletCardProps {
     name: string;
     balance: number;
     currency: string;
+    accountNumber?: string;
   };
   onPress: () => void;
 }
@@ -24,6 +25,11 @@ const WalletCard = ({ wallet, onPress }: WalletCardProps) => {
           <Text style={styles.balance}>
             {wallet.currency} {wallet.balance.toFixed(2)}
           </Text>
+          {wallet.accountNumber && (
+            <Text style={styles.accountNumber}>
+              Account: {wallet.accountNumber}
+            </Text>
+          )}
         </View>
       </View>
       <View style={styles.rightContent}>
@@ -81,6 +87,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#34495e',
     fontWeight: '500',
+    marginBottom: 4,
+  },
+  accountNumber: {
+    fontSize: 13,
+    color: '#7f8c8d',
+    fontFamily: 'monospace',
   },
 });
 

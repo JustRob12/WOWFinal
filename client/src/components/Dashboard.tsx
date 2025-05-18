@@ -7,7 +7,9 @@ import { API_ENDPOINTS } from '../config/api';
 import { FontAwesome } from '@expo/vector-icons';
 import WalletCard from './WalletCard';
 import CreateWalletModal from './CreateWalletModal';
+import LogoutConfirmationModal from './LogoutConfirmationModal';
 import { getToken } from '../services/auth';
+import { maskAccountNumber } from '../services/tokenization';
 
 type RootStackParamList = {
   Login: undefined;
@@ -29,6 +31,7 @@ interface Wallet {
   name: string;
   balance: number;
   currency: string;
+  accountNumber?: string; // Tokenized account number
 }
 
 const Dashboard = () => {
@@ -37,6 +40,7 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [totalBalance, setTotalBalance] = useState(0);
   const [displayName, setDisplayName] = useState<string>('');
@@ -146,7 +150,7 @@ const Dashboard = () => {
     fetchWallets();
   }, [user]);
 
-  const handleCreateWallet = async (name: string, currency: string) => {
+  const handleCreateWallet = async (name: string, currency: string, accountNumber: string) => {
     if (user?.email) {
       try {
         const token = await getToken();
@@ -159,6 +163,7 @@ const Dashboard = () => {
           body: JSON.stringify({
             name,
             currency,
+            accountNumber, // Send tokenized account number
             userId: user.email,
           }),
         });
@@ -185,6 +190,10 @@ const Dashboard = () => {
   };
 
   const handleSignOut = async () => {
+    setIsLogoutModalVisible(true);
+  };
+
+  const confirmLogout = async () => {
     try {
       await auth.signOut();
       navigation.navigate('Login' as never);
@@ -270,7 +279,10 @@ const Dashboard = () => {
             wallets.map((wallet) => (
               <WalletCard
                 key={wallet._id}
-                wallet={wallet}
+                wallet={{
+                  ...wallet,
+                  accountNumber: wallet.accountNumber ? maskAccountNumber(wallet.accountNumber) : undefined,
+                }}
                 onPress={() => handleWalletPress(wallet._id)}
               />
             ))
@@ -282,6 +294,12 @@ const Dashboard = () => {
         visible={isCreateModalVisible}
         onClose={() => setIsCreateModalVisible(false)}
         onSubmit={handleCreateWallet}
+      />
+
+      <LogoutConfirmationModal
+        visible={isLogoutModalVisible}
+        onClose={() => setIsLogoutModalVisible(false)}
+        onConfirm={confirmLogout}
       />
     </SafeAreaView>
   );

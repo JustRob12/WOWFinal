@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { createOrUpdateUser, getUserByEmail, logout } = require('../controllers/userController');
-const auth = require('../middleware/auth');
+const userController = require('../controllers/userController');
+const { auth } = require('../middleware/auth');
 
 // Public routes
-router.post('/', createOrUpdateUser);
+router.post('/', userController.createOrUpdateUser);
 
 // Protected routes
-router.get('/:email', auth, getUserByEmail);
-router.post('/logout', auth, logout);
+router.get('/:email', auth, userController.getUserByEmail);
+router.post('/logout', auth, userController.logout);
 
 module.exports = router; 

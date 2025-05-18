@@ -39,13 +39,20 @@ const walletSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    default: 'PHP'
+    required: true
+  },
+  accountNumber: {
+    type: String,
+    required: true,
+    // This field will store the tokenized account number
+    // Format: TOK_[encrypted]_[last4digits]
   },
   transactions: [transactionSchema],
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+}, {
+  timestamps: true,
 });
+
+// Add index for faster queries
+walletSchema.index({ userId: 1 });
 
 module.exports = mongoose.model('Wallet', walletSchema); 

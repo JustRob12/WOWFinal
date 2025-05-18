@@ -1,28 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const {
-  createWallet,
-  getWallets,
-  getWalletById,
-  updateWallet,
-  deleteWallet,
-  addTransaction,
-  getTransactionsSummary
-} = require('../controllers/walletController');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
+const walletController = require('../controllers/walletController');
 
-// All wallet routes are protected
-router.use(auth);
+// Create a new wallet
+router.post('/', auth, walletController.createWallet);
 
-// Wallet routes
-router.post('/', createWallet);
-router.get('/user/:userId', getWallets);
-router.get('/:id', getWalletById);
-router.put('/:id', updateWallet);
-router.delete('/:id', deleteWallet);
+// Get all wallets for a user
+router.get('/user/:userId', auth, walletController.getWalletsByUser);
 
-// Transaction routes
-router.post('/:id/transactions', addTransaction);
-router.get('/:id/transactions', getTransactionsSummary);
+// Get a specific wallet
+router.get('/:id', auth, walletController.getWallet);
+
+// Update a wallet
+router.put('/:id', auth, walletController.updateWallet);
+
+// Delete a wallet
+router.delete('/:id', auth, walletController.deleteWallet);
+
+// Add a transaction to a wallet
+router.post('/:id/transactions', auth, walletController.addTransaction);
+
+// Get transactions for a specific period
+router.get('/:id/transactions', auth, walletController.getTransactions);
+
+// Get transactions summary
+router.get('/:id/transactions/summary', auth, walletController.getTransactionsSummary);
 
 module.exports = router; 
