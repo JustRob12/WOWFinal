@@ -16,34 +16,28 @@ interface WalletCardProps {
 const WalletCard = ({ wallet, onPress }: WalletCardProps) => {
   return (
     <TouchableOpacity style={styles.container} onPress={onPress}>
-      <View style={styles.leftContent}>
-        <View style={styles.iconContainer}>
-          <FontAwesome name="credit-card" size={24} color="#ffffff" />
-        </View>
-        <View style={styles.infoContainer}>
-          <Text style={styles.name}>{wallet.name}</Text>
-          <Text style={styles.balance}>
-            {wallet.currency} {wallet.balance.toFixed(2)}
-          </Text>
-          {wallet.accountNumber && (
-            <Text style={styles.accountNumber}>
-              Account: {wallet.accountNumber}
-            </Text>
-          )}
-        </View>
+      <View style={styles.iconContainer}>
+        <FontAwesome name="credit-card" size={24} color="#ffffff" />
       </View>
-      <View style={styles.rightContent}>
-        <FontAwesome name="angle-right" size={24} color="#95a5a6" />
-      </View>
+      <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
+        {wallet.name}
+      </Text>
+      <Text style={styles.balance}>
+        {wallet.currency} {wallet.balance.toFixed(2)}
+      </Text>
+      {wallet.accountNumber && (
+        <Text style={styles.accountNumber} numberOfLines={1} ellipsizeMode="tail">
+          {wallet.accountNumber}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    width: '48%', // Almost half of screen width to show 2 per row
+    aspectRatio: 1, // Square shape
     backgroundColor: '#ffffff',
     padding: 16,
     borderRadius: 16,
@@ -56,14 +50,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-  },
-  leftContent: {
-    flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-  },
-  rightContent: {
-    paddingLeft: 16,
+    justifyContent: 'center',
   },
   iconContainer: {
     width: 48,
@@ -72,27 +60,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#3498db',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
-  },
-  infoContainer: {
-    flex: 1,
+    marginBottom: 12,
   },
   name: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2c3e50',
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   balance: {
     fontSize: 15,
     color: '#34495e',
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   accountNumber: {
     fontSize: 13,
     color: '#7f8c8d',
     fontFamily: 'monospace',
+    textAlign: 'center',
   },
 });
 

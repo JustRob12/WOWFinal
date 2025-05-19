@@ -28,7 +28,9 @@
     "react-native": "0.79.2",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
-    "react-native-web": "^0.20.0"
+    "react-native-ssl-pinning": "^1.5.9",
+    "react-native-web": "^0.20.0",
+    "react-plaid-link": "^4.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

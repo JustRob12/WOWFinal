@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, RefreshControl, Image, TextInput, FlatList } from 'react-native';
 import { auth } from '../firebase';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -8,9 +8,10 @@ import { FontAwesome } from '@expo/vector-icons';
 import WalletCard from './WalletCard';
 import CreateWalletModal from './CreateWalletModal';
 import LogoutConfirmationModal from './LogoutConfirmationModal';
-import { getToken } from '../services/auth';
+import { getToken, removeToken } from '../services/auth';
 import { maskAccountNumber } from '../services/tokenization';
 import { useUser } from '../context/UserContext';
+import PlaidLink from './PlaidLink';
 
 type RootStackParamList = {
   Login: undefined;
@@ -45,6 +46,8 @@ const Dashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [totalBalance, setTotalBalance] = useState(0);
   const [displayName, setDisplayName] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredWallets, setFilteredWallets] = useState<Wallet[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -143,6 +146,20 @@ const Dashboard = () => {
     fetchWallets();
   }, [user]);
 
+  useEffect(() => {
+    // Filter wallets based on search query
+    if (searchQuery.trim() === '') {
+      setFilteredWallets(wallets);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = wallets.filter(wallet => 
+        wallet.name.toLowerCase().includes(query) || 
+        (wallet.accountNumber && wallet.accountNumber.includes(query))
+      );
+      setFilteredWallets(filtered);
+    }
+  }, [searchQuery, wallets]);
+
   const handleCreateWallet = async (name: string, currency: string, accountNumber: string) => {
     if (user?.email) {
       try {
@@ -188,12 +205,40 @@ const Dashboard = () => {
 
   const confirmLogout = async () => {
     try {
-      // Optionally: await auth.signOut(); // Only if you want to sign out from Firebase too
-      setUser(null); // This triggers navigation back to Login
+      // Sign out from Firebase if using it
+      if (auth.currentUser) {
+        await auth.signOut();
+      }
+      
+      // Clear tokens and user data from storage
+      await removeToken();
+      
+      // Clear user context
+      setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
+
+  const handlePlaidSuccess = (publicToken: string, metadata: any) => {
+    console.log('Plaid linked successfully');
+    // Refresh wallets to show any newly connected accounts
+    fetchWallets();
+  };
+
+  const handlePlaidExit = () => {
+    console.log('Plaid link exited');
+  };
+
+  const renderWalletItem = ({ item }: { item: Wallet }) => (
+    <WalletCard
+      wallet={{
+        ...item,
+        accountNumber: item.accountNumber ? maskAccountNumber(item.accountNumber) : undefined,
+      }}
+      onPress={() => handleWalletPress(item._id)}
+    />
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -241,6 +286,10 @@ const Dashboard = () => {
               )}
             </View>
           </View>
+          
+          <View style={styles.plaidLinkContainer}>
+            <PlaidLink onSuccess={handlePlaidSuccess} onExit={handlePlaidExit} />
+          </View>
         </View>
 
         <View style={styles.totalBalanceCard}>
@@ -262,23 +311,40 @@ const Dashboard = () => {
             </TouchableOpacity>
           </View>
 
-          {wallets.length === 0 ? (
+          <View style={styles.searchContainer}>
+            <FontAwesome name="search" size={18} color="#95a5a6" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search wallets..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              clearButtonMode="while-editing"
+            />
+          </View>
+
+          {filteredWallets.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <FontAwesome name="credit-card-alt" size={48} color="#bdc3c7" />
-              <Text style={styles.noWalletsText}>No wallets found</Text>
-              <Text style={styles.noWalletsSubText}>Create one to get started!</Text>
+              <Text style={styles.noWalletsText}>
+                {wallets.length === 0 ? "No wallets found" : "No matching wallets"}
+              </Text>
+              <Text style={styles.noWalletsSubText}>
+                {wallets.length === 0 ? "Create one to get started!" : "Try a different search term"}
+              </Text>
             </View>
           ) : (
-            wallets.map((wallet) => (
-              <WalletCard
-                key={wallet._id}
-                wallet={{
-                  ...wallet,
-                  accountNumber: wallet.accountNumber ? maskAccountNumber(wallet.accountNumber) : undefined,
-                }}
-                onPress={() => handleWalletPress(wallet._id)}
-              />
-            ))
+            <View style={styles.walletsGrid}>
+              {filteredWallets.map((wallet) => (
+                <WalletCard
+                  key={wallet._id}
+                  wallet={{
+                    ...wallet,
+                    accountNumber: wallet.accountNumber ? maskAccountNumber(wallet.accountNumber) : undefined,
+                  }}
+                  onPress={() => handleWalletPress(wallet._id)}
+                />
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>
@@ -456,6 +522,42 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
+  },
+  plaidLinkContainer: {
+    marginTop: 16,
+    width: '100%',
+  },
+  walletsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    height: 48,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    height: 48,
+    fontSize: 16,
+    color: '#2c3e50',
   },
 });
 

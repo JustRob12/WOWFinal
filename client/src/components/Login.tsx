@@ -90,10 +90,20 @@ const Login = () => {
 
       // Set user in context (use email and displayName)
       if (googleUser) {
-        setUser({
+        // Get the Firebase ID token
+        const firebaseToken = await googleUser.getIdToken();
+        // Store token in AsyncStorage
+        await AsyncStorage.setItem('token', firebaseToken);
+        
+        // Create user object with essential information
+        const userData = {
           email: googleUser.email,
-          fullName: googleUser.displayName || googleUser.email,
-        });
+          displayName: googleUser.displayName || googleUser.email?.split('@')[0] || 'User',
+          photoURL: googleUser.photoURL,
+        };
+        
+        // Set user in context
+        setUser(userData);
       }
     } catch (error: any) {
       setError(error.message);
