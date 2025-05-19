@@ -3,17 +3,76 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const userSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true },
+  uid: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true
+  },
+  fullName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  passwordHash: {
+    type: String,
+    required: true
+  },
+  passwordLastChanged: {
+    type: Date,
+    required: true,
+    default: Date.now
+  },
+  lastLogout: {
+    type: Date,
+    default: null
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  },
   displayName: String,
   photoURL: String,
-  createdAt: { type: Date, default: Date.now },
   tokens: [{
     token: {
       type: String,
       required: true
     }
   }]
+}, {
+  timestamps: true
 });
+
+// Add indexes for better query performance
+userSchema.index({ email: 1 });
+userSchema.index({ uid: 1 });
+
+// Virtual for password age
+userSchema.virtual('passwordAge').get(function() {
+  return new Date() - this.passwordLastChanged;
+});
+
+// Method to check if password needs to be changed
+userSchema.methods.needsPasswordChange = function() {
+  const passwordExpirationPeriod = 90 * 24 * 60 * 60 * 1000; // 90 days in milliseconds
+  return this.passwordAge > passwordExpirationPeriod;
+};
+
+// Method to update password change date
+userSchema.methods.updatePasswordChangeDate = async function() {
+  this.passwordLastChanged = new Date();
+  await this.save();
+};
 
 // Generate auth token
 userSchema.methods.generateAuthToken = async function() {
@@ -29,4 +88,6 @@ userSchema.methods.generateAuthToken = async function() {
   return token;
 };
 
-module.exports = mongoose.model('User', userSchema); 
+const User = mongoose.model('User', userSchema);
+
+module.exports = User; 

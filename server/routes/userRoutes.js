@@ -9,5 +9,6 @@ router.post('/', userController.createOrUpdateUser);
 // Protected routes
 router.get('/:email', auth, userController.getUserByEmail);
 router.post('/logout', auth, userController.logout);
+router.get('/password/expiration', auth, userController.checkPasswordExpiration);
 
 module.exports = router; 

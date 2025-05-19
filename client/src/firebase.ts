@@ -1,12 +1,33 @@
-import { Platform } from 'react-native';
 
-let firebaseModule;
-if (Platform.OS === 'web') {
-  firebaseModule = require('./firebase.web');
-} else {
-  firebaseModule = require('./firebase.native');
-}
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  signInWithCredential
+} from 'firebase/auth';
 
-export const auth = firebaseModule.auth;
-export const googleProvider = firebaseModule.googleProvider;
-export const signInWithPopup = firebaseModule.signInWithPopup; 
+const firebaseConfig = {
+  apiKey: "AIzaSyDrrzYmb7jgRpzfEWT9edYAy5kDWWiZu6Q",
+  authDomain: "oauth-4df77.firebaseapp.com",
+  projectId: "oauth-4df77",
+  storageBucket: "oauth-4df77.firebasestorage.app",
+  messagingSenderId: "917950144788",
+  appId: "1:917950144788:web:5db363233fcbcaf4656201",
+  measurementId: "G-EHGM3TPBD1"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+
+// Export auth functions directly
+export { 
+  auth, 
+  googleProvider, 
+  signInWithPopup, 
+  signInWithEmailAndPassword,
+  signInWithCredential
+}; 

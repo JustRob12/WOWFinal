@@ -8,10 +8,14 @@ import {
   Platform,
   Dimensions,
   ImageBackground,
+  TextInput,
 } from 'react-native';
 import { auth, googleProvider, signInWithPopup } from '../firebase';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { useUser } from '../context/UserContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 let GoogleSignin: any;
 if (Platform.OS !== 'web') {
@@ -21,23 +25,80 @@ if (Platform.OS !== 'web') {
 const { width, height } = Dimensions.get('window');
 
 const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
+  const { setUser } = useUser();
+
+  const handleEmailLogin = async () => {
+    try {
+      setError('');
+      setIsLoading(true);
+
+      if (!email || !password) {
+        setError('Please fill in all fields');
+        setIsLoading(false);
+        return;
+      }
+
+      // Call backend API for authentication
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Login failed');
+        setIsLoading(false);
+        return;
+      }
+
+      setUser(data.user); // Set user in context
+      if (data.token) {
+        await AsyncStorage.setItem('token', data.token);
+      }
+      // No need to navigate manually
+    } catch (error: any) {
+      setError(error.message || 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     try {
+      setError('');
+      setIsLoading(true);
+
+      let googleUser = null;
+
       if (Platform.OS === 'web') {
-        await signInWithPopup(auth, googleProvider);
-        navigation.navigate('Dashboard' as never);
+        const result = await signInWithPopup(auth, googleProvider);
+        googleUser = result.user;
       } else {
         await GoogleSignin.hasPlayServices();
         const { idToken } = await GoogleSignin.signIn();
-        const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-        await auth().signInWithCredential(googleCredential);
-        navigation.navigate('Dashboard' as never);
+        const credential = GoogleAuthProvider.credential(idToken);
+        const result = await signInWithCredential(auth, credential);
+        googleUser = result.user;
+      }
+
+      // Set user in context (use email and displayName)
+      if (googleUser) {
+        setUser({
+          email: googleUser.email,
+          fullName: googleUser.displayName || googleUser.email,
+        });
       }
     } catch (error: any) {
       setError(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -60,10 +121,55 @@ const Login = () => {
               <Text style={styles.description}>
                 Track your expenses, manage multiple wallets, and take control of your financial future.
               </Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor="#666"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="#666"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!isLoading}
+              />
+              
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={handleEmailLogin}
+                disabled={isLoading}
+              >
+                <LinearGradient
+                  colors={['#4285f4', '#3578e5']}
+                  style={styles.buttonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.buttonText}>
+                    {isLoading ? 'Signing in...' : 'Sign In'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
               
               <TouchableOpacity
                 style={styles.googleButton}
                 onPress={handleGoogleSignIn}
+                disabled={isLoading}
               >
                 <LinearGradient
                   colors={['#4285f4', '#3578e5']}
@@ -73,6 +179,16 @@ const Login = () => {
                 >
                   <Text style={styles.buttonText}>Continue with Google</Text>
                 </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.registerLink}
+                onPress={() => navigation.navigate('Register' as never)}
+                disabled={isLoading}
+              >
+                <Text style={styles.registerLinkText}>
+                  Don't have an account? Sign up
+                </Text>
               </TouchableOpacity>
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -160,6 +276,45 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     lineHeight: 24,
   },
+  input: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  loginButton: {
+    width: '100%',
+    height: 50,
+    borderRadius: 25,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    marginBottom: 16,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e0e0e0',
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    color: '#666',
+    fontSize: 14,
+  },
   googleButton: {
     width: '100%',
     height: 50,
@@ -198,6 +353,14 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     opacity: 0.8,
+  },
+  registerLink: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  registerLinkText: {
+    color: '#4285f4',
+    fontSize: 16,
   },
 });
 

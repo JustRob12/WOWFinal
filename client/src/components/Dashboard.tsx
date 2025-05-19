@@ -10,6 +10,7 @@ import CreateWalletModal from './CreateWalletModal';
 import LogoutConfirmationModal from './LogoutConfirmationModal';
 import { getToken } from '../services/auth';
 import { maskAccountNumber } from '../services/tokenization';
+import { useUser } from '../context/UserContext';
 
 type RootStackParamList = {
   Login: undefined;
@@ -36,7 +37,7 @@ interface Wallet {
 
 const Dashboard = () => {
   const navigation = useNavigation<NavigationProp>();
-  const user = auth.currentUser;
+  const { user, setUser } = useUser();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
@@ -56,32 +57,24 @@ const Dashboard = () => {
     if (user) {
       try {
         const token = await getToken();
-        // Save user to MongoDB with display name
-        const response = await fetch(API_ENDPOINTS.users, {
-          method: 'POST',
+        // Fetch user profile from backend
+        const response = await fetch(`${API_ENDPOINTS.users}/${user.email}`, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            email: user.email,
-            displayName: user.displayName || user.email?.split('@')[0] || 'User',
-            photoURL: user.photoURL,
-          }),
         });
-        
         if (!response.ok) {
-          throw new Error('Failed to save user data');
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch user data');
         }
-        
         const data = await response.json();
         setProfile(data);
-        // Update display name from server response if available
         if (data.displayName) {
           setDisplayName(data.displayName);
         }
       } catch (error) {
-        console.error('Error saving user:', error);
+        console.error('Error fetching user:', error);
       }
     }
   };
@@ -195,8 +188,8 @@ const Dashboard = () => {
 
   const confirmLogout = async () => {
     try {
-      await auth.signOut();
-      navigation.navigate('Login' as never);
+      // Optionally: await auth.signOut(); // Only if you want to sign out from Firebase too
+      setUser(null); // This triggers navigation back to Login
     } catch (error) {
       console.error('Error signing out:', error);
     }
